@@ -93,13 +93,13 @@ Type of data array : {type(self.data_array[0])}"""
         if self.channels == 1: 
             plt.figure(figsize=(12,2))
 
-        # plt.subplot(2,1)
+            plt.subplot(2,1)
             plt.plot(t,self.data_array,color=[0,0,0],linewidth=0.5)
             plt.xlim(0, len(self.data_array)/self.sample_rate)
             plt.ylabel('Left chh')
             plt.grid()
 
-            plt.show()
+            #plt.show()
 
         if self.channels == 2:
             data_chan = [self.data_array[offset::self.channels] for offset in range(self.channels)]
@@ -122,4 +122,7 @@ Type of data array : {type(self.data_array[0])}"""
             plt.ylabel('Rigth ch')
             plt.grid()
 
-            plt.show()
+            #plt.show()
+            
+            plt.tight_layout()
+            return plt.gcf()

@@ -4,13 +4,15 @@ from PIL import Image, ImageTk
 import tkinterDnD as dnd
 from tkinter import BOTTOM, RIGHT, LEFT, TOP
 import pygame
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 import check_wav
+import sys
 
 class GUI:
     def __init__(self, root):
         self.root = root  
         self.root.title("WavProcessing Application")
-        self.root.geometry('800x500')
+        self.root.geometry('800x550')
         root.resizable(width=False, height=False)
         
         self.drop_here = tk.StringVar()
@@ -59,7 +61,8 @@ class GUI:
         meta_chunk = tk.StringVar(self.wav_parameters, cwav.meta_to_string())
 
         #Header Label
-        self.header_lbl = tk.Label(self.wav_parameters, textvariable=header)
+        self.header_lbl = tk.Label(self.wav_parameters, textvariable=header,
+                                   wraplength=900, justify="center")
         self.header_lbl.grid(row=0, column=0, columnspan=2)
 
         #Header Chunk Label
@@ -98,8 +101,18 @@ class GUI:
         for child in self.wav_parameters.winfo_children():
             child.destroy()
 
-    def plots_page(self):
-        pass
+    def plots_page(self, cwav):
+        plt_figure = cwav.plots()
+
+        # Integrate matplotlib with tkinter
+        canvas = FigureCanvasTkAgg(plt_figure, master=self.wav_parameters)
+        canvas.draw()
+        canvas.get_tk_widget().pack(side=tk.BOTTOM, fill=tk.BOTH, expand=True)
+
+    def fourier_transform_page(self, cwav):
+        fourier_transform_lbl = tk.Label(self.wav_parameters, text="DODAJ TRANSFORMATE FOURIERA KOLESZKO",
+                                          font=('Arial', 36), wraplength=800, justify="center")
+        fourier_transform_lbl.pack()
 
     def next_page(self):
         self.current_page += 1
@@ -112,9 +125,9 @@ class GUI:
             case 0:
                 self.parameters_page(self.cwav)
             case 1:
-                pass
+                self.plots_page(self.cwav)
             case 2:
-                pass
+                self.fourier_transform_page(self.cwav)
             
 
     def prev_page(self):
@@ -128,18 +141,18 @@ class GUI:
             case 0:
                 self.parameters_page(self.cwav)
             case 1:
-                pass
+                self.plots_page(self.cwav)
             case 2:
-                pass
+                self.fourier_transform_page(self.cwav)
 
     def wav_file_window(self):
-        self.navigation_and_title = tk.Frame(self.root, bg="blue")
+        self.navigation_and_title = tk.Frame(self.root, highlightbackground="grey", highlightthickness=1)
         self.navigation_and_title.pack(side = TOP, fill="x")
 
-        self.wav_parameters = tk.Frame(self.root, bg="green")
+        self.wav_parameters = tk.Frame(self.root, bg="white")
         self.wav_parameters.pack(fill="both", expand=True)
 
-        self.wav_player = tk.Frame(self.root, bg="blue")
+        self.wav_player = tk.Frame(self.root, highlightbackground="grey", highlightthickness=1)
         self.wav_player.pack(side = BOTTOM, fill="x")
 
         #images for play and pause music buttons
@@ -148,16 +161,16 @@ class GUI:
 
         #creating play and pasue buttons
         self.play_btn = tk.Button(self.wav_player, image=self.play_btn_image,
-                                  state=tk.DISABLED, command=self.play_wav)
-        self.play_btn.pack(side = LEFT, padx = 5)
+                                command=self.play_wav)
+        self.play_btn.pack(side = LEFT)
         self.stop_btn = tk.Button(self.wav_player, image=self.stop_btn_image,
-                                  state=tk.DISABLED, command=self.stop_wav)
-        self.stop_btn.pack(side = LEFT, padx = 5)
+                                command=self.stop_wav)
+        self.stop_btn.pack(side = LEFT)
 
         #creating track name
         self.file_name = self.wav_file.split("/")[-1]
-        self.file_name_lbl = tk.Label(self.wav_player, text=self.file_name, font=("Arial", 18))
-        self.file_name_lbl.pack(fill="y")
+        self.file_name_lbl = tk.Label(self.wav_player, text=self.file_name, font=("Arial", 20))
+        self.file_name_lbl.pack(fill="y", expand=True)
 
         #initialize pygame
         pygame.mixer.init()
@@ -212,4 +225,5 @@ class GUI:
         if pygame.mixer.music.get_busy():
             #stop audio playback
             pygame.mixer.music.stop()
-        self.root.destroy() 
+        self.root.destroy()
+        sys.exit() 
