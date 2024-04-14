@@ -79,9 +79,9 @@ Sample Width: {self.sample_width}
 Number of Samples: {len(self.data_array)}"""
     
     def data_to_string(self):
-        return f"""Data Chunk ID : {self.data_chunk_id}")
-Data Size : {self.data_chunk_size}")
-Data : {self.data_array}")
+        return f"""Data Chunk ID : {self.data_chunk_id}
+Data Size : {self.data_chunk_size}
+Data : {self.data_array}
 Type of data array : {type(self.data_array[0])}"""
     
     def meta_to_string(self):
@@ -93,7 +93,7 @@ Type of data array : {type(self.data_array[0])}"""
         if self.channels == 1: 
             plt.figure(figsize=(12,2))
 
-            plt.subplot(2,1)
+            plt.subplot(2,1,1)
             plt.plot(t,self.data_array,color=[0,0,0],linewidth=0.5)
             plt.xlim(0, len(self.data_array)/self.sample_rate)
             plt.ylabel('Left chh')
@@ -124,5 +124,22 @@ Type of data array : {type(self.data_array[0])}"""
 
             #plt.show()
             
-            plt.tight_layout()
-            return plt.gcf()
+        plt.tight_layout()
+        return plt.gcf()
+    
+    def save_anonimous_wav(self, output_file_path):
+        with open(output_file_path, 'wb') as output_file:
+            output_file.write(self.header)
+            
+            if self.sample_width == 8:
+                data_type = np.int8
+            elif self.sample_width == 16:
+                data_type = np.int16
+            elif self.sample_width == 32:
+                data_type = np.int32
+            else:
+                raise ValueError("Unsupported sample width")
+            
+            # Zapisz dane do pliku
+            data_bytes = self.data_array.astype(data_type).tobytes()
+            output_file.write(data_bytes)
