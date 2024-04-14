@@ -36,19 +36,23 @@ class Check_wav:
             audio_file.seek(44)
             data = audio_file.read(self.data_chunk_size)
 
-            #check for more chunks
-            self.add_chunks =b''
-            add_chunk_id=0
-            add_data_id = self.data_chunk_size+44
+            # Check for additional chunks
+            self.add_chunks = b''
+            add_chunk_id = 0
+            add_data_id = self.data_chunk_size + 44
             audio_file.seek(add_data_id)
             add_data = audio_file.read()
             print(add_data)
-            while add_data_id+add_chunk_id < self.file_size:
-                self.add_chunks += struct.unpack('4s', add_data[0+add_chunk_id:4+add_chunk_id])[0]
-                self.add_chunks+=b' '
-                add_chunk_size = struct.unpack('<I', add_data[4+add_chunk_id:8+add_chunk_id])[0]
-                print(add_data[8+add_chunk_id:8+add_chunk_size+add_chunk_id])
-                add_chunk_id+=8+add_chunk_size
+
+            while add_data_id + add_chunk_id + 8 <= len(add_data):  # Ensure enough bytes left for 8-byte chunk header
+                chunk_id = struct.unpack('4s', add_data[0 + add_chunk_id:4 + add_chunk_id])[0]
+                self.add_chunks += chunk_id + b' '
+                
+                chunk_size = struct.unpack('<I', add_data[4 + add_chunk_id:8 + add_chunk_id])[0]
+                
+                print(add_data[8 + add_chunk_id:8 + chunk_size + add_chunk_id])
+                
+                add_chunk_id += 8 + chunk_size
 
         
         # Converting the raw binary data to a list of integers : 
