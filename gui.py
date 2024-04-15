@@ -7,7 +7,10 @@ import pygame
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 import check_wav
 import sys
+import numpy as np
 from tkinter import messagebox
+import matplotlib.pyplot as plt
+
 
 class GUI:
     def __init__(self, root):
@@ -114,6 +117,42 @@ class GUI:
         fourier_transform_lbl = tk.Label(self.wav_parameters, text="DODAJ TRANSFORMATE FOURIERA KOLESZKO",
                                           font=('Arial', 36), wraplength=800, justify="center")
         fourier_transform_lbl.pack()
+
+    def spectrogram(x, fs, window_size=256, overlap=0.5):
+        hop_size = int(window_size * (1 - overlap))
+        num_samples = len(x)
+        num_windows = int(np.ceil((num_samples - window_size) / hop_size)) + 1
+        frequencies = np.fft.rfftfreq(window_size, 1 / fs)
+        
+        spectrogram = np.zeros((len(frequencies), num_windows))
+        
+        for i in range(num_windows):
+            start = i * hop_size
+            end = start + window_size
+            if end > num_samples:
+                window = np.hamming(num_samples - start)
+                padded_window = np.pad(window, (0, window_size - len(window)), 'constant')
+                segment = x[start:num_samples]
+                segment = np.pad(segment, (0, len(padded_window)-len(segment)), mode='constant')
+            else:
+                segment = x[start:end]
+                padded_window = np.hamming(window_size)
+            windowed_segment = segment * padded_window
+            spectrum = np.abs(np.fft.rfft(windowed_segment, window_size))
+            spectrogram[:, i] = spectrum
+            times = np.arange(0, num_samples-1, hop_size)[1:]/fs
+            
+        return frequencies, times, spectrogram
+    
+    def plot_specgram(x, fs):
+        frequencies, times, Sxx = spectrogram(x, fs)
+        scale = 10 * np.log10(Sxx)
+        plt.pcolormesh(times, frequencies, scale)  
+        plt.ylabel('Frequency [Hz]')
+        plt.xlabel('Time [sec]')
+        plt.title('Spectrogram')
+        plt.colorbar(label='Intensity [dB]')
+        plt.show()
 
     def save_file_page(self, cwav):
         save_wav_lbl = tk.Label(self.wav_parameters, text="Please enter file path to save anonimous copy",

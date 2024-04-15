@@ -1,6 +1,6 @@
 import check_wav
 
-cwav = check_wav.Check_wav("test_files/Bontempi-B3-C5.wav")
+cwav = check_wav.Check_wav("test_files/sample-file-4.wav")
 
 print("\n -----HEADER CHUNK----- \n")
 print(cwav.header_chunk_to_string())
@@ -16,4 +16,4 @@ print(cwav.meta_to_string())
 
 #cwav.plots()
 
-cwav.save_anonimous_wav("test_files/Bontempi_result.wav")
+cwav.save_anonimous_wav("test_files/sample-file-4_result.wav")
