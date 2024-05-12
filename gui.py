@@ -104,55 +104,24 @@ class GUI:
     def destory_pages(self):
         for child in self.wav_parameters.winfo_children():
             child.destroy()
+        
 
     def plots_page(self, cwav):
-        plt_figure = cwav.plots()
+        plt_figure1 = cwav.plots()
 
         # Integrate matplotlib with tkinter
-        canvas = FigureCanvasTkAgg(plt_figure, master=self.wav_parameters)
-        canvas.draw()
-        canvas.get_tk_widget().pack(side=tk.BOTTOM, fill=tk.BOTH, expand=True)
+        self.canvas = FigureCanvasTkAgg(plt_figure1, master=self.wav_parameters)
+        self.canvas.draw()
+        self.canvas.get_tk_widget().pack(side=tk.BOTTOM, fill=tk.BOTH, expand=True)
 
     def fourier_transform_page(self, cwav):
-        fourier_transform_lbl = tk.Label(self.wav_parameters, text="DODAJ TRANSFORMATE FOURIERA KOLESZKO",
-                                          font=('Arial', 36), wraplength=800, justify="center")
-        fourier_transform_lbl.pack()
+        plt.clf()
+        plt_figure2 = cwav.plot_spectrogram(1000)
 
-    def spectrogram(x, fs, window_size=256, overlap=0.5):
-        hop_size = int(window_size * (1 - overlap))
-        num_samples = len(x)
-        num_windows = int(np.ceil((num_samples - window_size) / hop_size)) + 1
-        frequencies = np.fft.rfftfreq(window_size, 1 / fs)
-        
-        spectrogram = np.zeros((len(frequencies), num_windows))
-        
-        for i in range(num_windows):
-            start = i * hop_size
-            end = start + window_size
-            if end > num_samples:
-                window = np.hamming(num_samples - start)
-                padded_window = np.pad(window, (0, window_size - len(window)), 'constant')
-                segment = x[start:num_samples]
-                segment = np.pad(segment, (0, len(padded_window)-len(segment)), mode='constant')
-            else:
-                segment = x[start:end]
-                padded_window = np.hamming(window_size)
-            windowed_segment = segment * padded_window
-            spectrum = np.abs(np.fft.rfft(windowed_segment, window_size))
-            spectrogram[:, i] = spectrum
-            times = np.arange(0, num_samples-1, hop_size)[1:]/fs
-            
-        return frequencies, times, spectrogram
-    
-    def plot_specgram(x, fs):
-        frequencies, times, Sxx = spectrogram(x, fs)
-        scale = 10 * np.log10(Sxx)
-        plt.pcolormesh(times, frequencies, scale)  
-        plt.ylabel('Frequency [Hz]')
-        plt.xlabel('Time [sec]')
-        plt.title('Spectrogram')
-        plt.colorbar(label='Intensity [dB]')
-        plt.show()
+        self.canvas = FigureCanvasTkAgg(plt_figure2, master=self.wav_parameters)
+        self.canvas.draw()
+        self.canvas.get_tk_widget().pack(side=tk.BOTTOM, fill=tk.BOTH, expand=True)
+
 
     def save_file_page(self, cwav):
         save_wav_lbl = tk.Label(self.wav_parameters, text="Please enter file path to save anonimous copy",
@@ -194,7 +163,7 @@ class GUI:
     def prev_page(self):
         self.current_page -= 1
         if self.current_page == -1:
-            self.current_page = 2
+            self.current_page = 3
 
         self.destory_pages()
 
@@ -205,6 +174,8 @@ class GUI:
                 self.plots_page(self.cwav)
             case 2:
                 self.fourier_transform_page(self.cwav)
+            case 3:
+                self.save_file_page(self.cwav)
 
     def wav_file_window(self):
         self.navigation_and_title = tk.Frame(self.root, highlightbackground="grey", highlightthickness=1)

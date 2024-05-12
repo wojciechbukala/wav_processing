@@ -16,4 +16,6 @@ print(cwav.meta_to_string())
 
 #cwav.plots()
 
+cwav.plot_spectrogram(1000)
+
 cwav.save_anonimous_wav("test_files/sample-file-4_result.wav")

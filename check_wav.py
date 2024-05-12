@@ -42,19 +42,10 @@ class Check_wav:
             add_data_id = self.data_chunk_size + 44
             audio_file.seek(add_data_id)
             add_data = audio_file.read()
-            print(add_data)
+            print(f"Additional data: {add_data}")
 
-            while add_data_id + add_chunk_id + 8 <= len(add_data):  # Ensure enough bytes left for 8-byte chunk header
-                chunk_id = struct.unpack('4s', add_data[0 + add_chunk_id:4 + add_chunk_id])[0]
-                self.add_chunks += chunk_id + b' '
-                
-                chunk_size = struct.unpack('<I', add_data[4 + add_chunk_id:8 + add_chunk_id])[0]
-                
-                print(add_data[8 + add_chunk_id:8 + chunk_size + add_chunk_id])
-                
-                add_chunk_id += 8 + chunk_size
+            self.add_chunks_list = self.split_additional_chunks(add_data)
 
-        
         # Converting the raw binary data to a list of integers : 
         typ = { 1: np.int8, 2: np.int16, 4: np.int32 }.get(self.sample_width/8)
         self.data_array = np.frombuffer(data, dtype=typ)
@@ -63,6 +54,29 @@ class Check_wav:
         
         #return header_chunk_id, file_size, header_chunk_format, format_chunk_id, format_chunk_size, data_array, format_code, channels, sample_width, sample_rate, byte_rate, block_align, data_chunk_id, data_chunk_size, add_chunks
     
+    def split_additional_chunks(self, add_data):
+        add_chunks_list = []
+        add_chunk_id = 0
+
+        while add_chunk_id + 8 <= len(add_data):  # Ensure enough bytes left for 8-byte chunk header
+            chunk_id = struct.unpack('4s', add_data[0 + add_chunk_id:4 + add_chunk_id])[0]
+            chunk_size = struct.unpack('<I', add_data[4 + add_chunk_id:8 + add_chunk_id])[0]
+
+            # Extract chunk data
+            chunk_data = add_data[8 + add_chunk_id:8 + chunk_size + add_chunk_id]
+
+            # Add chunk to list
+            add_chunks_list.append({
+                'chunk_id': chunk_id.decode(),
+                'chunk_size': chunk_size,
+                'chunk_data': chunk_data
+            })
+
+            add_chunk_id += 8 + chunk_size
+
+        return add_chunks_list
+
+
     def header_to_string(self):
         return f"The header is {self.header}"
 
@@ -89,7 +103,11 @@ Data : {self.data_array}
 Type of data array : {type(self.data_array[0])}"""
     
     def meta_to_string(self):
-        return f"""Additional chunks: {self.add_chunks}"""
+        result = f"""Additional chunks: {self.add_chunks}\n"""
+        for chunk in self.add_chunks_list:
+            result += f"Chunk ID: {chunk['chunk_id']}, Size: {chunk['chunk_size']}\n"
+        return result
+        
     
     def plots(self):
         t = np.arange(len(self.data_array)/self.channels)/(self.sample_rate)
@@ -147,3 +165,43 @@ Type of data array : {type(self.data_array[0])}"""
             # Zapisz dane do pliku
             data_bytes = self.data_array.astype(data_type).tobytes()
             output_file.write(data_bytes)
+
+    def spectrogram(self, fs, window_size=256, overlap=0.5):
+        x = self.data_array
+        hop_size = int(window_size * (1 - overlap))
+        num_samples = len(x)
+        num_windows = int(np.ceil((num_samples - window_size) / hop_size)) + 1
+        frequencies = np.fft.rfftfreq(window_size, 1 / fs)
+        
+        spectrogram = np.zeros((len(frequencies), num_windows))
+        
+        for i in range(num_windows):
+            start = i * hop_size
+            end = start + window_size
+            if end > num_samples:
+                window = np.hamming(num_samples - start)
+                padded_window = np.pad(window, (0, window_size - len(window)), 'constant')
+                segment = x[start:num_samples]
+                segment = np.pad(segment, (0, len(padded_window)-len(segment)), mode='constant')
+            else:
+                segment = x[start:end]
+                padded_window = np.hamming(window_size)
+            windowed_segment = segment * padded_window
+            spectrum = np.abs(np.fft.rfft(windowed_segment, window_size))
+            spectrogram[:, i] = spectrum
+            times = np.arange(0, num_samples-1, hop_size)[1:]/fs
+            
+        return frequencies, times, spectrogram
+    
+    def plot_spectrogram(self, fs):
+        frequencies, times, Sxx = self.spectrogram(fs)
+        scale = 10 * np.log10(Sxx)
+        plt.pcolormesh(times, frequencies, scale)  
+        plt.ylabel('Frequency [Hz]')
+        plt.xlabel('Time [sec]')
+        plt.title('Spectrogram')
+        plt.colorbar(label='Intensity [dB]')
+        #plt.show()
+
+        plt.tight_layout()
+        return plt.gcf()
