@@ -10,6 +10,7 @@ import sys
 import numpy as np
 from tkinter import messagebox
 import matplotlib.pyplot as plt
+from rsa_encoding import *
 
 
 class GUI:
@@ -24,6 +25,13 @@ class GUI:
 
         self.path_str = tk.StringVar()
         self.path_str.set('')
+
+        self.public_key, self.private_key = generate_rsa_keys()
+        self.IV = b'\1'
+        for i in range(0,63):
+            self.IV += b'\0'
+
+        self.public_key_pem, self.private_key_pem = convert_to_pem(self.public_key, self.private_key)
 
     def check_if_wav(self, file_path):
         if file_path.endswith(".wav"):
@@ -142,9 +150,133 @@ class GUI:
                                 command = get_input, pady= 15)
         save_button.pack()
 
+    def rsa_page(self, cwav):
+        self.ecb_frame = tk.Frame(self.wav_parameters)
+        self.ecb_frame.grid(row=1, column=0, padx=10, pady=10)
+        encrypt_ecb_file_lbl = tk.Label(self.ecb_frame, text="Enter file path to save ecb encryption",
+                                        pady=10, font=('Arial', 15))
+        ecb_input = tk.Text(self.ecb_frame, height = 1, width =20)
+
+        def encrypt_ecb():
+            new_file_path = ecb_input.get(1.0, "end-1c")
+            if self.check_if_wav(new_file_path):
+                cwav.ecb_encrypt(self.public_key, 64)
+                cwav.save_encrypted_wav(new_file_path)
+                messagebox.showinfo("Info", "File saved")
+            else:
+                messagebox.showwarning("Warning", "Not a .wav file")
+
+        encrypt_ecb_button = tk.Button(self.ecb_frame, text="Submit",
+                                       command=encrypt_ecb, pady= 10)
+       
+        decrypt_ecb_file_lbl = tk.Label(self.ecb_frame, text="Enter file path to save ecb decryption",
+                                        pady=10, font=('Arial', 15))
+        ecb_output = tk.Text(self.ecb_frame, height = 1, width =20)
+
+        def decrypt_ecb():
+            new_file_path = ecb_output.get(1.0, "end-1c")
+            if self.check_if_wav(new_file_path):
+                cwav.ecb_decrypt(self.private_key, 64)
+                cwav.save_decrypted_wav(new_file_path)
+                messagebox.showinfo("Info", "File saved")
+            else:
+                messagebox.showwarning("Warning", "Not a .wav file")
+
+        decrypt_ecb_button = tk.Button(self.ecb_frame, text="Submit",
+                                       command=decrypt_ecb, pady= 10)
+
+        self.cbc_frame = tk.Frame(self.wav_parameters)
+        self.cbc_frame.grid(row=1, column=1, padx=10, pady=10)
+        encrypt_cbc_file_lbl = tk.Label(self.cbc_frame, text="Enter file path to save cbc encryption",
+                                        pady=10, font=('Arial', 15))
+        cbc_input = tk.Text(self.cbc_frame, height = 1, width =20)
+
+        def encrypt_cbc():
+            new_file_path = cbc_input.get(1.0, "end-1c")
+            if self.check_if_wav(new_file_path):
+                cwav.cbc_encryption(self.public_key, 64, self.IV)
+                cwav.save_encrypted_wav(new_file_path)
+                messagebox.showinfo("Info", "File saved")
+            else:
+                messagebox.showwarning("Warning", "Not a .wav file")
+
+        encrypt_cbc_button = tk.Button(self.cbc_frame, text="Submit",
+                                       command=encrypt_cbc, pady= 10)
+
+        decrypt_cbc_file_lbl = tk.Label(self.cbc_frame, text="Enter file path to save cbc decryption",
+                                        pady=10, font=('Arial', 15))
+        cbc_output = tk.Text(self.cbc_frame, height = 1, width =20)
+
+        def decrypt_cbc():
+            new_file_path = cbc_output.get(1.0, "end-1c")
+            if self.check_if_wav(new_file_path):
+                cwav.cbc_decryption(self.private_key, 64, self.IV)
+                cwav.save_decrypted_wav(new_file_path)
+                messagebox.showinfo("Info", "File saved")
+            else:
+                messagebox.showwarning("Warning", "Not a .wav file")
+
+        decrypt_cbc_button = tk.Button(self.cbc_frame, text="Submit",
+                                       command=decrypt_cbc, pady= 10)
+
+        self.lib_frame = tk.Frame(self.wav_parameters)
+        self.lib_frame.grid(row=2, column=0, rowspan =2, padx=10, pady=10)
+        encrypt_lib_file_lbl = tk.Label(self.lib_frame, text="Enter file path to save automatic encryption",
+                                        pady=10, font=('Arial', 15))
+        lib_input = tk.Text(self.lib_frame, height = 1, width =20)
+
+        def encrypt_lib():
+            new_file_path = lib_input.get(1.0, "end-1c")
+            if self.check_if_wav(new_file_path):
+                cwav.library_encrypt(self.public_key_pem, 64)
+                cwav.save_encrypted_wav(new_file_path)
+                messagebox.showinfo("Info", "File saved")
+            else:
+                messagebox.showwarning("Warning", "Not a .wav file")
+
+        encrypt_lib_button = tk.Button(self.lib_frame, text="Submit",
+                                       command=encrypt_lib, pady= 10)
+
+        decrypt_lib_file_lbl = tk.Label(self.lib_frame, text="Enter file path to save automatic decryption",
+                                        pady=10, font=('Arial', 15))
+        lib_output = tk.Text(self.lib_frame, height = 1, width =20)
+
+        def decrypt_lib():
+            new_file_path = lib_output.get(1.0, "end-1c")
+            if self.check_if_wav(new_file_path):
+                cwav.library_decrypt(self.private_key_pem)
+                cwav.save_decrypted_wav(new_file_path)
+                messagebox.showinfo("Info", "File saved")
+            else:
+                messagebox.showwarning("Warning", "Not a .wav file")
+
+        decrypt_lib_button = tk.Button(self.lib_frame, text="Submit",
+                                       command=decrypt_lib, pady= 10)
+
+        encrypt_ecb_file_lbl.pack()
+        ecb_input.pack()
+        encrypt_ecb_button.pack()
+        decrypt_ecb_file_lbl.pack()
+        ecb_output.pack()
+        decrypt_ecb_button.pack()
+        encrypt_cbc_file_lbl.pack()
+        cbc_input.pack()
+        encrypt_cbc_button.pack()
+        decrypt_cbc_file_lbl.pack()
+        cbc_output.pack()
+        decrypt_cbc_button.pack()
+        encrypt_lib_file_lbl.pack()
+        lib_input.pack()
+        encrypt_lib_button.pack()
+        decrypt_lib_file_lbl.pack()
+        lib_output.pack()
+        decrypt_lib_button.pack()
+
+
+
     def next_page(self):
         self.current_page += 1
-        if self.current_page == 4:
+        if self.current_page == 5:
             self.current_page = 0
 
         self.destory_pages()
@@ -158,12 +290,14 @@ class GUI:
                 self.fourier_transform_page(self.cwav)
             case 3:
                 self.save_file_page(self.cwav)
+            case 4:
+                self.rsa_page(self.cwav)
             
 
     def prev_page(self):
         self.current_page -= 1
         if self.current_page == -1:
-            self.current_page = 3
+            self.current_page = 4
 
         self.destory_pages()
 
@@ -176,6 +310,8 @@ class GUI:
                 self.fourier_transform_page(self.cwav)
             case 3:
                 self.save_file_page(self.cwav)
+            case 4:
+                self.rsa_page(self.cwav)
 
     def wav_file_window(self):
         self.navigation_and_title = tk.Frame(self.root, highlightbackground="grey", highlightthickness=1)

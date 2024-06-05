@@ -1,6 +1,9 @@
 import struct
 import matplotlib.pyplot as plt
 import numpy as np
+import base64
+from Crypto.PublicKey import RSA
+from Crypto.Cipher import PKCS1_OAEP
 
 class Check_wav:
     def __init__(self, file_path):
@@ -34,7 +37,7 @@ class Check_wav:
             
             # Read the data from the file
             audio_file.seek(44)
-            data = audio_file.read(self.data_chunk_size)
+            self.data = audio_file.read(self.data_chunk_size)
 
             # Check for additional chunks
             self.add_chunks = b''
@@ -48,7 +51,7 @@ class Check_wav:
 
         # Converting the raw binary data to a list of integers : 
         typ = { 1: np.int8, 2: np.int16, 4: np.int32 }.get(self.sample_width/8)
-        self.data_array = np.frombuffer(data, dtype=typ)
+        self.data_array = np.frombuffer(self.data, dtype=typ)
         # Convert to float32
         self.data_array = self.data_array.astype(np.float32)
         
@@ -105,7 +108,7 @@ Type of data array : {type(self.data_array[0])}"""
     def meta_to_string(self):
         result = f"""Additional chunks: {self.add_chunks}\n"""
         for chunk in self.add_chunks_list:
-            result += f"Chunk ID: {chunk['chunk_id']}, Size: {chunk['chunk_size']}\n"
+            result += f"Chunk ID: {chunk['chunk_id']}, Size: {chunk['chunk_size'],}\n Chunk data: {chunk['chunk_data']}"
         return result
         
     
@@ -205,3 +208,147 @@ Type of data array : {type(self.data_array[0])}"""
 
         plt.tight_layout()
         return plt.gcf()
+
+############################ Electronic CodeBook section ############################
+    def ecb_encrypt(self, public_key, block_size):
+        e, N = public_key
+        self.encrypted_blocks_base64 = []
+
+        # data = self.data_array.tobytes()
+        data = self.data
+        for i in range(0, len(data), block_size):
+            block = int.from_bytes(data[i:i+block_size-1], byteorder='big', signed=False)
+            encrypted_block = pow(block, e, N)
+            encrypted_block_bytes = encrypted_block.to_bytes((encrypted_block.bit_length() + 7) // 8, byteorder='big')
+            encrypted_block_bytes += b'\0'*((block_size*8-encrypted_block.bit_length())//8)
+            encrypted_block_base64 = base64.b64encode(encrypted_block_bytes).decode('utf-8')
+            self.encrypted_blocks_base64.append(encrypted_block_base64)
+
+        self.encrypted_data = '\n'.join(self.encrypted_blocks_base64).encode('utf-8')
+
+    def save_encrypted_wav(self, output_file_path):
+        with open(output_file_path, 'wb') as output_file:
+            output_file.write(self.header)
+            output_file.write(self.encrypted_data)
+
+    def ecb_decrypt(self, private_key, block_size):
+        d, N = private_key
+        decrypted_data = bytearray()
+        for encrypted_block_base64 in self.encrypted_blocks_base64:
+            encrypted_block_bytes = base64.b64decode(encrypted_block_base64)
+            encrypted_block = int.from_bytes(encrypted_block_bytes, byteorder='big', signed=False)
+            decrypted_block = pow(encrypted_block, d, N)
+            decrypted_block_bytes = decrypted_block.to_bytes((decrypted_block.bit_length()+7)//8, byteorder='big')
+            decrypted_block_bytes += b'\0'*((block_size*8-decrypted_block.bit_length())//8)
+            decrypted_data.extend(decrypted_block_bytes)
+
+        decrypted_data = decrypted_data[:len(self.data_array.tobytes())]
+
+        typ = {1: np.int8, 2: np.int16, 4: np.int32}.get(self.sample_width // 8)
+        if not typ:
+            raise ValueError("Unsupported sample width")
+        self.data_array = np.frombuffer(decrypted_data, dtype=typ)
+
+    def save_decrypted_wav(self, output_file_path):
+        with open(output_file_path, 'wb') as output_file:
+            output_file.write(self.header)
+            
+            if self.sample_width == 8:
+                data_type = np.int8
+            elif self.sample_width == 16:
+                data_type = np.int16
+            elif self.sample_width == 32:
+                data_type = np.int32
+            else:
+                raise ValueError("Unsupported sample width")
+
+            data_bytes = self.data_array.astype(data_type).tobytes()
+            output_file.write(data_bytes)
+
+############################ Cipher block chaining section ############################
+
+    def xor_mask(self, data, mask):
+        return bytes(a ^ b for a, b in zip(data, mask))
+    def cbc_encryption(self, public_key, block_size, IV):
+        e, N = public_key
+        self.encrypted_blocks_base64 = []
+        data = self.data 
+        for i in range(0, len(data), block_size):
+            block_bytes = data[i:i+block_size-1]
+            if(i==0): 
+                prev_block = IV
+                i += 1
+            print("type of prev block: ", type(prev_block))
+            print("type of block: ", type(block_bytes))
+            block_bytes = self.xor_mask(block_bytes, prev_block)
+            block = int.from_bytes(block_bytes, byteorder='big', signed=False)
+            encrypted_block = pow(block, e, N)
+            encrypted_block_bytes = encrypted_block.to_bytes((encrypted_block.bit_length() + 7) // 8, byteorder='big')
+            encrypted_block_bytes += b'\0'*((block_size*8-encrypted_block.bit_length())//8)
+            prev_block = encrypted_block_bytes
+            encrypted_block_base64 = base64.b64encode(encrypted_block_bytes).decode('utf-8')
+            self.encrypted_blocks_base64.append(encrypted_block_base64)
+        
+        self.encrypted_data = '\n'.join(self.encrypted_blocks_base64).encode('utf-8')
+
+    def cbc_decryption(self, private_key, block_size, IV):
+        d, N = private_key
+        decrypted_data = bytearray()
+        i=0
+        for encrypted_block_base64 in self.encrypted_blocks_base64:
+            encrypted_block_bytes = base64.b64decode(encrypted_block_base64)
+            encrypted_block = int.from_bytes(encrypted_block_bytes, byteorder='big', signed=False)
+            decrypted_block = pow(encrypted_block, d, N)
+            decrypted_block_bytes = decrypted_block.to_bytes((decrypted_block.bit_length()+7)//8, byteorder='big')
+            decrypted_block_bytes += b'\0'*((block_size*8-decrypted_block.bit_length())//8)
+            if(i==0): 
+                prev_block = IV
+                i += 1
+            decrypted_block_bytes = self.xor_mask(decrypted_block_bytes, prev_block)
+            decrypted_data.extend(decrypted_block_bytes)
+            prev_block = encrypted_block_bytes
+            
+    def library_encrypt(self, public_key_pem, block_size):
+        self.encrypted_blocks = []
+
+        public_key = RSA.import_key(public_key_pem)
+        cipher_rsa = PKCS1_OAEP.new(public_key)
+
+        data = self.data
+        for i in range(0, len(data), block_size):
+            block = data[i:i+block_size]
+            encrypted_block = cipher_rsa.encrypt(block)
+            self.encrypted_blocks.append(encrypted_block)
+
+        self.encrypted_data = b''.join(self.encrypted_blocks)
+
+    def library_decrypt(self, private_key_pem):
+        decrypted_data = bytearray()
+
+        private_key = RSA.import_key(private_key_pem)
+        cipher_rsa = PKCS1_OAEP.new(private_key)
+
+        for encrypted_block in self.encrypted_blocks:
+            decrypted_block = cipher_rsa.decrypt(encrypted_block)
+            decrypted_data.extend(decrypted_block)
+
+        decrypted_data = decrypted_data[:len(self.data_array.tobytes())]
+
+        typ = {1: np.int8, 2: np.int16, 4: np.int32}.get(self.sample_width // 8)
+        if not typ:
+            raise ValueError("Unsupported sample width")
+        self.data_array = np.frombuffer(decrypted_data, dtype=typ)
+
+        
+
+def add_bytes(input_file, output_file, bytes_to_add):
+    with open(input_file, 'rb') as input_f:
+        with open(output_file, 'wb') as output_f:
+            header = input_f.read(44)
+            output_f.write(header)
+            
+            data = input_f.read()
+            output_f.write(data)
+            
+            output_f.write(bytes_to_add)
+

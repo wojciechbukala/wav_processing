@@ -19,3 +19,5 @@ print(cwav.meta_to_string())
 cwav.plot_spectrogram(1000)
 
 cwav.save_anonimous_wav("test_files/sample-file-4_result.wav")
+additional_bytes = b"Additional bytes" * 1000
+check_wav.add_bytes("test_files/sample-file-4_result.wav", "test_files/sample-file-4_additional.wav", additional_bytes)
